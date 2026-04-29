@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermescad"
+version = "0.1.0"
+description = "Hermes-powered engineering inbox workflow agent backed by FreeCAD."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "ezdxf",
+  "pydantic",
+  "pillow",
+  "reportlab",
+]
+
+[tool.setuptools.packages.find]
+include = ["hermescad*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+

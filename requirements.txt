@@ -1,0 +1,6 @@
+ezdxf
+pydantic
+pillow
+reportlab
+pytest
+

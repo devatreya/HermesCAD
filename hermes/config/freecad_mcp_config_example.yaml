@@ -1,0 +1,45 @@
+# Example 1: Local FreeCAD RPC server on the same machine.
+# Keep the exposed tool list minimal for the hackathon MVP.
+# `execute_code` is powerful and should only be used for trusted local demo workflows.
+
+mcp_servers:
+  freecad:
+    command: "uvx"
+    args:
+      - "freecad-mcp"
+    enabled: true
+    timeout: 120
+    connect_timeout: 60
+    tools:
+      include:
+        - create_document
+        - execute_code
+        - get_view
+        - get_objects
+        - get_object
+      resources: false
+      prompts: false
+
+---
+# Example 2: Optional remote-host configuration when the FreeCAD RPC server runs elsewhere.
+
+mcp_servers:
+  freecad:
+    command: "uvx"
+    args:
+      - "freecad-mcp"
+      - "--host"
+      - "127.0.0.1"
+    enabled: true
+    timeout: 120
+    connect_timeout: 60
+    tools:
+      include:
+        - create_document
+        - execute_code
+        - get_view
+        - get_objects
+        - get_object
+      resources: false
+      prompts: false
+

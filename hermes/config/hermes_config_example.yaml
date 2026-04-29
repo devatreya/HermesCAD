@@ -1,0 +1,29 @@
+# Add this FreeCAD MCP block under `mcp_servers` in `~/.hermes/config.yaml`.
+# Selected FreeCAD MCP: neka-nat/freecad-mcp
+# Hermes exposes the server-native tools as names like:
+# - mcp_freecad_create_document
+# - mcp_freecad_execute_code
+# - mcp_freecad_get_view
+# - mcp_freecad_get_objects
+# - mcp_freecad_get_object
+# Keep resources and prompts disabled unless you explicitly need them.
+# After saving the config, run `/reload-mcp` inside Hermes.
+
+mcp_servers:
+  freecad:
+    command: "uvx"
+    args:
+      - "freecad-mcp"
+    enabled: true
+    timeout: 120
+    connect_timeout: 60
+    tools:
+      include:
+        - create_document
+        - execute_code
+        - get_view
+        - get_objects
+        - get_object
+      resources: false
+      prompts: false
+

@@ -1,0 +1,2 @@
+Please create a 10 mm thick 3D model from this 2D drawing. Cut all circular holes through. Add 1 mm chamfers to the outside edges. Send STEP, STL, FreeCAD file, preview, and report.
+
