@@ -84,6 +84,12 @@ Expected outputs:
 - If FreeCAD is available:
   `jobs/<job_id>/hermescad_model.FCStd`, `hermescad_model.step`, `hermescad_model.stl`, and possibly `preview.png`
 
+Canonical output contract:
+
+- Each run should have one canonical working directory under `jobs/<job_id>/`.
+- Each run should have one packaged archive at `outputs/<job_id>_outputs.zip`.
+- Hermes should not create extra ad hoc top-level output folders for the same run.
+
 The local demo does not require Hermes or FreeCAD MCP. If FreeCAD is not installed, it still completes DXF inspection, report generation, and packaging while clearly marking CAD generation as skipped.
 
 ## Connect This To Hermes

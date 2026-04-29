@@ -33,18 +33,21 @@ Use this skill when Hermes receives an engineering request with a CAD attachment
 ## Workflow Steps
 
 1. Identify the attachment file type first.
-2. If the file is DXF, inspect it directly.
-3. If the file is DWG, attempt conversion to DXF using LibreDWG if available.
-4. Extract or confirm units.
-5. Extract or confirm thickness.
-6. Detect whether the request fits the MVP scope:
+2. Create a single canonical job directory under the repository `jobs/` folder, for example `jobs/job_<timestamp>`.
+3. Copy the source drawing into that job directory.
+4. If the file is DXF, inspect it directly.
+5. If the file is DWG, attempt conversion to DXF using LibreDWG if available.
+6. Extract or confirm units.
+7. Extract or confirm thickness.
+8. Detect whether the request fits the MVP scope:
    simple plate or bracket from a 2D mechanical drawing
-7. Inspect geometry:
+9. Inspect geometry:
    units if available, bounding box, lines, polylines, circles, arcs, and circular hole candidates
-8. Prefer FreeCAD MCP execution for model creation and export.
-9. If MCP is unavailable, use the local FreeCAD scripts.
-10. Generate STEP, STL, FCStd, preview, and report when possible.
-11. If any step fails, explain exactly what failed and what the user should send next.
+10. Prefer FreeCAD MCP execution for model creation and export.
+11. If MCP is unavailable, use the local FreeCAD scripts.
+12. Generate STEP, STL, FCStd, preview, and report when possible.
+13. Package the final job directory into exactly one zip file at `outputs/<job_id>_outputs.zip`.
+14. If any step fails, explain exactly what failed and what the user should send next.
 
 ## Clarification Rules
 
@@ -89,6 +92,9 @@ Use this skill when Hermes receives an engineering request with a CAD attachment
 
 - Always return a Markdown report.
 - Return STEP, STL, FCStd, preview, and report when possible.
+- Always write deliverables into one canonical job directory under `jobs/`.
+- Always create exactly one packaged zip under `outputs/<job_id>_outputs.zip`.
+- Do not create extra ad hoc output folders under `outputs/` for the same run.
 - Always state assumptions.
 - Always state warnings.
 - If something fails, explain exactly what failed and what the user should send next.

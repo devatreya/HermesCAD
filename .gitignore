@@ -12,3 +12,4 @@ jobs/*
 outputs/*
 !outputs/.gitkeep
 
+examples/outputs/
