@@ -9,8 +9,9 @@ from pathlib import Path
 from .conversion import convert_dwg_to_dxf
 from .freecad import repository_root, run_freecad_generation
 from .inspection import inspect_dxf_file
-from .models import FreeCADRunResult, GeometrySummary, ProcessResult
+from .models import FeaturePlan, FreeCADRunResult, GeometrySummary, ProcessResult
 from .packaging import collect_output_artifacts, package_job_outputs, write_output_manifest
+from .planning import build_feature_plan, write_feature_plan
 from .reporting import write_markdown_report
 
 THICKNESS_PATTERNS = [
@@ -62,6 +63,8 @@ def process_cad_request(
     instruction_text: str,
     job_dir: Path,
     outputs_dir: Path | None = None,
+    *,
+    package_outputs: bool = True,
 ) -> ProcessResult:
     input_file = input_file.resolve()
     job_dir = job_dir.resolve()
@@ -96,6 +99,7 @@ def process_cad_request(
 
     effective_input = copied_input
     geometry_summary: GeometrySummary | None = None
+    feature_plan: FeaturePlan | None = None
 
     if copied_input.suffix.lower() == ".dwg":
         conversion = convert_dwg_to_dxf(copied_input, job_dir)
@@ -154,17 +158,43 @@ def process_cad_request(
             )
 
         result.assumptions.append(
-            "The MVP treats circles as through-hole candidates and uses the drawing bounding box as a simple plate envelope."
+            "HermesCAD reconstructs closed 2D contours, treats top-level contours as material regions, "
+            "treats nested odd-depth contours as cutouts, and interprets circular cutouts as through-hole candidates."
         )
+        if geometry_summary.closed_contour_count == 0:
+            can_attempt_cad = False
+            result.failures.append(
+                "No closed contours were detected, so HermesCAD could not safely reconstruct a 2D profile for extrusion."
+            )
 
     result.warnings.append(
         "Generated outputs require engineering review and are not claimed to be manufacturing-ready."
     )
 
     if can_attempt_cad and geometry_summary and result.geometry_summary_path:
+        feature_plan = build_feature_plan(
+            instruction_text=instruction_text,
+            geometry_summary=geometry_summary,
+            thickness_mm=thickness_mm,
+            chamfer_mm=chamfer_mm,
+        )
+        feature_plan_path = write_feature_plan(job_dir / "feature_plan.json", feature_plan)
+        result.feature_plan_path = str(feature_plan_path)
+        result.actions_performed.append("Built a structured feature plan from the request text and inspected contours.")
+        result.assumptions.append(
+            f"Planned {len(feature_plan.operations)} ordered feature operation(s) from the current geometry and request text."
+        )
+        result.warnings.extend(feature_plan.warnings)
+        if chamfer_mm is not None and any(operation.kind == "countersink_hole" for operation in feature_plan.operations):
+            result.warnings.append(
+                "Exterior chamfers were requested along with countersinks. HermesCAD will prioritize the countersink operations and skip the exterior chamfer in the same run for FreeCAD robustness."
+            )
+        result.metadata["feature_operations"] = [operation.model_dump(mode="json") for operation in feature_plan.operations]
+
         cad_result = run_freecad_generation(
             dxf_path=effective_input,
             geometry_summary_path=Path(result.geometry_summary_path),
+            feature_plan_path=feature_plan_path,
             output_dir=job_dir,
             thickness_mm=thickness_mm,
             chamfer_mm=chamfer_mm,
@@ -189,7 +219,10 @@ def process_cad_request(
 
     result.outputs = collect_output_artifacts(job_dir)
     result.report_path = str((job_dir / "report.md").resolve())
-    result.package_path = str((outputs_dir / f"{job_dir.name}_outputs.zip").resolve())
+    if package_outputs:
+        result.package_path = str((outputs_dir / f"{job_dir.name}_outputs.zip").resolve())
+    else:
+        result.package_path = None
 
     write_markdown_report(result, geometry_summary, Path(result.report_path))
     result.actions_performed.append("Generated the Markdown engineering assumptions report.")
@@ -201,12 +234,15 @@ def process_cad_request(
     result.outputs = collect_output_artifacts(job_dir)
     _write_summary_json(Path(result.summary_path), result)
 
-    try:
-        package_job_outputs(job_dir, outputs_dir, job_dir.name)
-        result.actions_performed.append("Packaged generated outputs into a zip archive.")
-    except Exception as exc:
-        result.package_path = None
-        result.failures.append(f"Failed to package outputs: {exc}")
+    if package_outputs:
+        try:
+            package_job_outputs(job_dir, outputs_dir, job_dir.name)
+            result.actions_performed.append("Packaged generated outputs into a zip archive.")
+        except Exception as exc:
+            result.package_path = None
+            result.failures.append(f"Failed to package outputs: {exc}")
+    else:
+        result.actions_performed.append("Skipped per-part packaging because this request is being used inside a larger workflow.")
 
     result.outputs = collect_output_artifacts(job_dir)
     _write_summary_json(Path(result.summary_path), result)

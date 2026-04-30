@@ -20,6 +20,12 @@ def main() -> int:
         required=True,
         help="Path to geometry_summary.json.",
     )
+    parser.add_argument(
+        "--feature-plan",
+        type=Path,
+        required=True,
+        help="Path to feature_plan.json.",
+    )
     parser.add_argument("--output-dir", type=Path, required=True, help="Job output directory.")
     parser.add_argument("--thickness-mm", type=float, required=True, help="Requested thickness in mm.")
     parser.add_argument("--chamfer-mm", type=float, help="Optional chamfer size in mm.")
@@ -28,6 +34,7 @@ def main() -> int:
     result = run_freecad_generation(
         dxf_path=args.dxf,
         geometry_summary_path=args.geometry_summary,
+        feature_plan_path=args.feature_plan,
         output_dir=args.output_dir,
         thickness_mm=args.thickness_mm,
         chamfer_mm=args.chamfer_mm,

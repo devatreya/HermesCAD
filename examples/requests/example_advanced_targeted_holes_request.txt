@@ -1,0 +1,10 @@
+Create a 16 mm thick 3D model from this 2D drawing.
+Make the corner holes 10 mm deep.
+Make the center hole an M8 countersunk screw hole.
+Make the largest pocket 6 mm deep.
+Make the right window through.
+Make the top window 4 mm deep.
+Make the bottom slot 8 mm deep.
+Make the top slot through.
+Raise the center island by 3 mm.
+Return STEP, STL, FCStd, preview, and a report.

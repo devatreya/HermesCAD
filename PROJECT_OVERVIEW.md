@@ -12,5 +12,4 @@ For the hackathon MVP:
 - HermesCAD falls back to local FreeCAD scripts when MCP is unavailable.
 - The result is returned as STEP, STL, FCStd, preview, and a report when possible.
 
-HermesCAD is intentionally narrow in scope. Version 1 is built for simple mechanical plates and brackets from 2D DXF drawings, not for arbitrary assemblies or full drawing interpretation.
-
+HermesCAD is intentionally narrow in scope. Version 1 is built for 2D-to-3D profile parts with one global thickness from DXF drawings, plus explicit pocket or blind-depth operations when the request text clearly specifies them. It is not for arbitrary assemblies, full drawing-note interpretation, or manufacturing sign-off.

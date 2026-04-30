@@ -1,0 +1,1 @@
+Create a 14 mm thick 3D model from this 2D drawing. Make the large internal pocket 5 mm deep. Make the slot 9 mm deep. Cut all circular holes through. Add 1 mm chamfers to the outside edges. Return STEP, STL, FCStd, preview, and a report.

@@ -4,7 +4,7 @@ HermesCAD turns engineering inbox requests into CAD deliverables. Engineers alre
 
 ## What HermesCAD Is
 
-HermesCAD is an engineering workflow agent for repeatable CAD operations. The MVP focuses on simple 2D mechanical DXF drawings such as plates and brackets, then turns them into a lightweight FreeCAD workflow with documented assumptions.
+HermesCAD is an engineering workflow agent for repeatable CAD operations. The current strongest path is 2D-to-3D reconstruction of one-thickness profile parts from DXF drawings, including non-rectangular outlines, circular holes, slots, internal windows, and other through-cut contours, plus explicit pocket, blind-hole, counterbore, countersink, metric screw-hole, and preserved-island boss operations when the request text gives clear depth intent.
 
 ## What HermesCAD Does
 
@@ -14,6 +14,11 @@ HermesCAD is an engineering workflow agent for repeatable CAD operations. The MV
 - Prefers [`neka-nat/freecad-mcp`](https://github.com/neka-nat/freecad-mcp) as the primary FreeCAD MCP.
 - Falls back to local FreeCAD scripts if the MCP path is unavailable.
 - Produces a report, packaged outputs, and clear status messages even when FreeCAD is missing.
+- Can apply approximate metric screw-hole presets such as clearance holes, socket-head counterbores, and countersunk screw heads to existing DXF hole locations.
+- Can model approximate internal metric threads on existing DXF hole locations when the drawing already includes the pilot-hole geometry and the request specifies a supported metric size.
+- Can target different slots, windows, pockets, and preserved islands by relative descriptors such as `top`, `bottom`, `right`, `largest`, or `center`.
+- Can target different hole groups independently, for example `corner holes 10 mm deep` while keeping a `center hole` through for a screw-head feature.
+- Can build deterministic assemblies from an explicit JSON manifest that lists part drawings, per-part instructions, and placements.
 
 ## What HermesCAD Does Not Do
 
@@ -22,6 +27,9 @@ HermesCAD is an engineering workflow agent for repeatable CAD operations. The MV
 - It does not fully understand every engineering drawing.
 - It does not replace CAD engineers.
 - It does not introduce CadQuery, Conjure, or a second CAD stack in the MVP.
+- It does not place new screw holes safely without explicit DXF geometry for the hole locations.
+- It does not infer assembly mates or fastener stacks automatically.
+- It does not claim standards-verified or manufacturing-certified thread geometry; modeled threads are approximate demo geometry and still require engineering review.
 
 ## How Hermes Fits In
 
@@ -84,6 +92,14 @@ Expected outputs:
 - If FreeCAD is available:
   `jobs/<job_id>/hermescad_model.FCStd`, `hermescad_model.step`, `hermescad_model.stl`, and possibly `preview.png`
 
+For deterministic assemblies, use:
+
+```bash
+python scripts/process_assembly_request.py examples/assemblies/threaded_cover_stack/assembly_manifest.json
+```
+
+That workflow produces one root assembly job folder with nested part subfolders plus assembly-level `FCStd`, `STEP`, `STL`, `preview`, report, and one packaged zip.
+
 Canonical output contract:
 
 - Each run should have one canonical working directory under `jobs/<job_id>/`.
@@ -102,9 +118,18 @@ The local demo does not require Hermes or FreeCAD MCP. If FreeCAD is not install
 
 ## Use The Hermes Skill
 
-The skill instructions live in [hermes/skills/hermescad/SKILL.md](/Users/devatreya/Desktop/Projects/HermesCAD/hermes/skills/hermescad/SKILL.md). Hermes should use that skill when a user sends a simple plate/bracket DXF workflow request such as:
+The skill instructions live in [hermes/skills/hermescad/SKILL.md](/Users/devatreya/Desktop/Projects/HermesCAD/hermes/skills/hermescad/SKILL.md). Hermes should use that skill when a user sends a 2D-to-3D DXF workflow request such as:
 
 > Create a 10 mm thick 3D model from this 2D drawing. Cut all circular holes through. Add 1 mm chamfers. Send STEP, STL, FreeCAD file, preview, and report.
+
+You can also point the local demo at the richer profile samples:
+
+- [mount_plate_complex.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/mount_plate_complex.dxf)
+- [dogbone_link_complex.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/dogbone_link_complex.dxf)
+- [nested_pocket_island_complex.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/nested_pocket_island_complex.dxf)
+- [actuator_plate_advanced.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/actuator_plate_advanced.dxf)
+- [assembly_base_plate_threaded.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/assembly_base_plate_threaded.dxf)
+- [assembly_cover_plate_clearance.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/assembly_cover_plate_clearance.dxf)
 
 ## Fallback Path If MCP Is Not Available
 

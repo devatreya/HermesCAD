@@ -1,0 +1,1 @@
+Create an 8 mm thick 3D model from this 2D drawing. Cut the largest window through. Make the top slot through. Keep the corner holes as M6 clearance holes. Add 0.75 mm chamfers.

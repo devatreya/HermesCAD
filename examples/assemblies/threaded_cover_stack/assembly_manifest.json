@@ -1,0 +1,32 @@
+{
+  "assembly_name": "threaded_cover_stack",
+  "description": "Base plate with four M6 threaded mounting holes and a clearance-hole cover plate stacked above it.",
+  "parts": [
+    {
+      "name": "base_plate",
+      "input_file": "/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/assembly_base_plate_threaded.dxf",
+      "instruction_text": "Create a 12 mm thick 3D model from this 2D drawing. Make the corner holes M6 threaded 10 mm deep. Make the largest pocket 4 mm deep. Raise the center island by 2 mm. Add 1 mm chamfers.",
+      "placement": {
+        "x_mm": 0,
+        "y_mm": 0,
+        "z_mm": 0,
+        "rx_deg": 0,
+        "ry_deg": 0,
+        "rz_deg": 0
+      }
+    },
+    {
+      "name": "cover_plate",
+      "input_file": "/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/assembly_cover_plate_clearance.dxf",
+      "instruction_text": "Create an 8 mm thick 3D model from this 2D drawing. Cut the largest window through. Make the top slot through. Make the corner holes M6 clearance holes. Add 0.75 mm chamfers.",
+      "placement": {
+        "x_mm": 0,
+        "y_mm": 0,
+        "z_mm": 12,
+        "rx_deg": 0,
+        "ry_deg": 0,
+        "rz_deg": 0
+      }
+    }
+  ]
+}

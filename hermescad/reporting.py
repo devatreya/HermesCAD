@@ -11,6 +11,38 @@ def _format_bullet_lines(items: list[str], fallback: str) -> list[str]:
     return [f"- {item}" for item in items]
 
 
+def _format_feature_operation_lines(metadata: dict[str, object]) -> list[str]:
+    operations = metadata.get("feature_operations", [])
+    if not isinstance(operations, list) or not operations:
+        return ["- No structured feature operations were recorded."]
+
+    lines: list[str] = []
+    for operation in operations:
+        if not isinstance(operation, dict):
+            continue
+        contour_ids = operation.get("contour_ids", [])
+        contour_count = len(contour_ids) if isinstance(contour_ids, list) else 0
+        details: list[str] = []
+        parameters = operation.get("parameters", {})
+        if isinstance(parameters, dict):
+            for key in [
+                "major_diameter_mm",
+                "included_angle_deg",
+                "pilot_diameter_mm",
+                "tap_drill_mm",
+                "thread_pitch_mm",
+                "screw_size",
+                "selector",
+            ]:
+                if key in parameters:
+                    details.append(f"{key}={parameters[key]}")
+        detail_suffix = f" ({', '.join(details)})" if details else ""
+        lines.append(
+            f"- `{operation.get('operation_id', 'op')}`: `{operation.get('kind', 'unknown')}` on `{operation.get('target_kind', 'unknown')}` across {contour_count} contour(s) at {operation.get('depth_mm', 'unknown')} mm{detail_suffix}"
+        )
+    return lines or ["- No structured feature operations were recorded."]
+
+
 def write_markdown_report(
     result: ProcessResult,
     geometry_summary: GeometrySummary | None,
@@ -32,6 +64,10 @@ def write_markdown_report(
                 f"{bbox.width if bbox.width is not None else 'Unknown'} x "
                 f"{bbox.height if bbox.height is not None else 'Unknown'}"
             ),
+            f"Closed contours: {geometry_summary.closed_contour_count}",
+            f"Open chains: {geometry_summary.open_chain_count}",
+            f"Outer profiles: {len(geometry_summary.outer_profile_ids)}",
+            f"Cutouts: {len(geometry_summary.cutout_ids)}",
             f"Circular hole candidates: {len(geometry_summary.hole_candidates)}",
         ]
 
@@ -50,6 +86,7 @@ def write_markdown_report(
         f"- Job ID: `{result.job_id}`",
         f"- Input file: `{Path(result.input_file).name}`",
         f"- Effective input file: `{Path(result.effective_input_file).name}`",
+        f"- Feature plan: `{Path(result.feature_plan_path).name}`" if result.feature_plan_path else "- Feature plan: `not generated`",
         "",
         "## Original Request",
         result.instruction_text.strip(),
@@ -62,6 +99,9 @@ def write_markdown_report(
         "",
         "## Assumptions",
         *_format_bullet_lines(result.assumptions, "No additional assumptions were recorded."),
+        "",
+        "## Feature Operations",
+        *_format_feature_operation_lines(result.metadata),
         "",
         "## Warnings",
         *_format_bullet_lines(
@@ -91,4 +131,3 @@ def write_markdown_report(
 
     report_path.write_text("\n".join(lines), encoding="utf-8")
     return report_path
-
