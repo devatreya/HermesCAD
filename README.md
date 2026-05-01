@@ -100,6 +100,25 @@ python scripts/process_assembly_request.py examples/assemblies/threaded_cover_st
 
 That workflow produces one root assembly job folder with nested part subfolders plus assembly-level `FCStd`, `STEP`, `STL`, `preview`, report, and one packaged zip.
 
+## Assembly Input Modes
+
+HermesCAD uses a manifest-shaped assembly model internally, but that does not mean the user must always hand-author JSON first.
+
+Supported ways to describe an assembly:
+
+- Preferred and first-class: an explicit JSON manifest with part drawings, per-part instructions, placements, and optional fasteners
+- Hermes prompt with multiple part file paths plus exact per-part instructions and exact placement data
+
+Important rule:
+
+- HermesCAD can build the assembly only after the request has been normalized into explicit part specifications and placements
+- If a prompt contains two or more file paths but does not say how the parts are positioned relative to one another, HermesCAD should stop and ask for the missing placement data instead of inventing mates
+
+In other words:
+
+- A manifest is the most reliable production input
+- A free-form Hermes prompt is also acceptable if it provides enough deterministic information for Hermes to construct the equivalent runtime manifest internally
+
 Canonical output contract:
 
 - Each run should have one canonical working directory under `jobs/<job_id>/`.
@@ -116,6 +135,14 @@ The local demo does not require Hermes or FreeCAD MCP. If FreeCAD is not install
 4. Run `/reload-mcp` in Hermes after saving the config.
 5. Test a basic tool such as `mcp_freecad_get_objects` or `mcp_freecad_create_document`.
 
+For local testing without email, start Hermes from the repository root and pass either:
+
+- one DXF/DWG path plus a 2D-to-3D instruction
+- an explicit assembly manifest path
+- multiple part paths plus exact per-part instructions and exact placement data
+
+For assemblies, Hermes should normalize the request into explicit part definitions and placements before the FreeCAD assembly step begins.
+
 ## Use The Hermes Skill
 
 The skill instructions live in [hermes/skills/hermescad/SKILL.md](/Users/devatreya/Desktop/Projects/HermesCAD/hermes/skills/hermescad/SKILL.md). Hermes should use that skill when a user sends a 2D-to-3D DXF workflow request such as:
@@ -131,6 +158,41 @@ You can also point the local demo at the richer profile samples:
 - [assembly_base_plate_threaded.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/assembly_base_plate_threaded.dxf)
 - [assembly_cover_plate_clearance.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/assembly_cover_plate_clearance.dxf)
 
+Example assembly prompt with an explicit manifest:
+
+```text
+Use the hermescad skill with this explicit assembly manifest:
+
+/absolute/path/to/assembly_manifest.json
+
+Build the assembly exactly from the manifest.
+Return FCStd, STEP, STL, preview, and a report.
+```
+
+Example assembly prompt without a hand-written manifest:
+
+```text
+Use the hermescad skill to assemble these two parts:
+
+/absolute/path/to/base_plate.dxf
+/absolute/path/to/cover_plate.dxf
+
+Part instructions:
+- base_plate: Create a 12 mm thick model and keep the four corner holes as M6 threaded holes 10 mm deep.
+- cover_plate: Create an 8 mm thick model and keep the four corner holes as M6 clearance holes.
+
+Placement instructions:
+- Place the base_plate at X=0, Y=0, Z=0 with no rotation.
+- Place the cover_plate at X=0, Y=0, Z=12 mm with no rotation.
+
+Fasteners:
+- Insert 4 ISO4762 M6 x 20 screws through the cover plate corner holes into the base plate threaded holes.
+
+Return FCStd, STEP, STL, preview, and a report.
+```
+
+That prompt is valid because it contains the same information that would otherwise live in a manifest: part paths, part-level instructions, placements, and fastener intent.
+
 ## Fallback Path If MCP Is Not Available
 
 If `neka-nat/freecad-mcp` is unavailable or unstable, HermesCAD falls back to:
@@ -142,6 +204,15 @@ Hermes
 → report + package + clear failure notes if FreeCAD still cannot run
 
 That fallback still uses FreeCAD as the only CAD backend.
+
+## Repository Hygiene
+
+Generated working files are intentionally local-only:
+
+- [jobs](/Users/devatreya/Desktop/Projects/HermesCAD/jobs) is a runtime workspace
+- [outputs](/Users/devatreya/Desktop/Projects/HermesCAD/outputs) stores packaged deliverables
+
+Both directories are ignored by git except for their `.gitkeep` placeholders, so a fresh clone should not inherit someone else’s run artifacts.
 
 ## Repository Guide
 

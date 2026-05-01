@@ -98,7 +98,19 @@ After configuration:
 
 If that works, HermesCAD can prefer the MCP path.
 
-## 8. Fallback Path
+## 8. Assembly Inputs
+
+HermesCAD assemblies are deterministic, not inferred.
+
+You can provide assembly intent in two ways:
+
+1. Preferred: explicit JSON manifest
+2. Acceptable: Hermes prompt containing all of the following
+   part file paths, per-part instructions, exact placements, and any fastener requirements
+
+If placements are missing, HermesCAD should stop and ask instead of inventing mates.
+
+## 9. Fallback Path
 
 If the MCP setup fails or is unstable:
 
@@ -107,3 +119,12 @@ If the MCP setup fails or is unstable:
 3. HermesCAD will inspect DXF, generate reports, and package outputs even when CAD generation is skipped.
 
 The fallback path still uses FreeCAD as the only CAD backend.
+
+## 10. Local Runtime Directories
+
+HermesCAD writes working files to:
+
+- `jobs/`
+- `outputs/`
+
+These directories are intentionally ignored by git except for `.gitkeep`, so local run artifacts should not be committed or shared through a normal clone.

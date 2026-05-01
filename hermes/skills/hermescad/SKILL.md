@@ -19,6 +19,7 @@ Use this skill when Hermes receives an engineering request with a CAD attachment
 - DXF attachment
 - DWG attachment when DXF is unavailable
 - Optional assembly manifest with explicit part placements
+- Optional multi-part prompt with explicit part file paths, per-part instructions, and exact placements
 - Optional thickness, chamfer, hole-edit, screw-hole, export-format, and unit instructions
 
 ## Default Assumptions
@@ -47,11 +48,12 @@ Use this skill when Hermes receives an engineering request with a CAD attachment
    base thickness, chamfer, through-cuts, blind holes, pocket depths, slot depths, preserved-island boss heights, and explicit hole-finishing operations such as counterbores, countersinks, threaded holes, or metric screw-hole presets where clearly stated
    Use hole-group selectors when the request distinguishes `corner holes`, `center hole`, `top holes`, or similar subsets.
 11. If the request is an assembly, require or construct an explicit manifest with part drawings, per-part instructions, and placements before CAD generation.
-12. Prefer FreeCAD MCP execution for model creation and export.
-13. If MCP is unavailable, use the local FreeCAD scripts.
-14. Generate STEP, STL, FCStd, preview, and report when possible.
-15. Package the final job directory into exactly one zip file at `outputs/<job_id>_outputs.zip`.
-16. If any step fails, explain exactly what failed and what the user should send next.
+12. If the user provided multiple part file paths directly in the Hermes prompt, normalize that prompt into the same explicit runtime structure HermesCAD would have loaded from a manifest.
+13. Prefer FreeCAD MCP execution for model creation and export.
+14. If MCP is unavailable, use the local FreeCAD scripts.
+15. Generate STEP, STL, FCStd, preview, and report when possible.
+16. Package the final job directory into exactly one zip file at `outputs/<job_id>_outputs.zip`.
+17. If any step fails, explain exactly what failed and what the user should send next.
 
 ## Clarification Rules
 

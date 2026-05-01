@@ -1,15 +1,19 @@
 .venv/
-__pycache__/
 .pytest_cache/
 *.pyc
 *.pyo
 *.pyd
 *.DS_Store
 
-jobs/*
+__pycache__/
+**/__pycache__/
+
+# Local runtime artifacts. Fresh clones should start with empty working
+# directories and only keep the placeholder file.
+jobs/**
 !jobs/.gitkeep
 
-outputs/*
+outputs/**
 !outputs/.gitkeep
 
 examples/outputs/
