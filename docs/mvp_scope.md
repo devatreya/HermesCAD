@@ -22,7 +22,7 @@
 - Multi-depth pockets and variable-thickness feature inference
 - Simultaneous countersink plus exterior-chamfer execution in a single stable feature pass
 - Automatic placement of new screw holes from natural-language instructions without matching DXF hole geometry
-- Standards-verified or tolerance-certified thread modeling
+- Standards-verified or tolerance-certified thread tolerances
 - Arbitrary additive boss footprints that are not represented as preserved islands in the DXF topology
 - Automatic mate inference, constraint solving, or fit validation for assemblies
 - Nested blocks and xrefs

@@ -272,6 +272,13 @@ def _select_hole_contour_ids(
     return [str(hole.contour_id) for hole in holes if hole.contour_id]
 
 
+def select_hole_contour_ids(
+    geometry_summary: GeometrySummary,
+    selector: str,
+) -> list[str]:
+    return _dedupe_contour_ids(_select_hole_contour_ids(geometry_summary, selector))
+
+
 def _selected_hole_diameters(
     contour_ids: list[str],
     hole_diameter_by_id: dict[str, float],
@@ -655,7 +662,7 @@ def _append_metric_thread_operations(
 
         operation_notes = list(depth_notes)
         operation_notes.append(
-            "HermesCAD models internal threads as approximate helical groove cuts around the tap-drill hole, not as manufacturing-certified thread geometry."
+            "HermesCAD models internal threads with an ISO-style 60 degree metric thread profile around the tap-drill hole, not a tolerance-certified manufacturing thread definition."
         )
         plan.operations.append(
             FeatureOperation(
@@ -670,6 +677,7 @@ def _append_metric_thread_operations(
                     "thread_pitch_mm": preset["thread_pitch_mm"],
                     "screw_size": screw_size,
                     "selector": selector,
+                    "thread_profile_standard": "iso_metric_60",
                 },
                 notes=operation_notes,
             )
@@ -683,7 +691,7 @@ def _append_metric_thread_operations(
 
     if thread_defaults_used:
         plan.warnings.append(
-            "Modeled threaded holes use approximate helical grooves for demo geometry and still require engineering review before fabrication."
+            "Modeled threaded holes use an ISO-style 60 degree metric thread profile for demo geometry and still require engineering review before fabrication."
         )
 
     return assigned_hole_ids, blocked_hole_ids

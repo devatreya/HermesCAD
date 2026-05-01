@@ -76,7 +76,7 @@ Use this skill when Hermes receives an engineering request with a CAD attachment
 - Always include assumptions and warnings in the final response.
 - Treat `execute_code` as a trusted local-demo tool only.
 - Metric screw-hole presets are approximate defaults for local workflow acceleration and must be reviewed before fabrication.
-- Modeled threads are approximate helical demo geometry and must be reviewed before fabrication.
+- Modeled threads use an ISO-style 60 degree metric profile and must still be reviewed before fabrication.
 
 ## FreeCAD MCP Execution Steps
 

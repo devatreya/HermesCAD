@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -162,10 +162,24 @@ class AssemblyPartSpec(BaseModel):
     placement: AssemblyPlacement = Field(default_factory=AssemblyPlacement)
 
 
+class AssemblyFastenerSpec(BaseModel):
+    name: str
+    standard: str = "ISO4762"
+    diameter: str
+    length_mm: float
+    source_part: str
+    hole_selector: str = "all"
+    thread_mode: Literal["simple", "real"] = "real"
+    head_side: Literal["positive_z", "negative_z"] = "positive_z"
+    offset_mm: float = 0.0
+    description: str | None = None
+
+
 class AssemblyManifest(BaseModel):
     assembly_name: str
     description: str | None = None
     parts: list[AssemblyPartSpec] = Field(default_factory=list)
+    fasteners: list[AssemblyFastenerSpec] = Field(default_factory=list)
 
 
 class ProcessResult(BaseModel):

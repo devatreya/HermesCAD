@@ -254,6 +254,7 @@ def test_threaded_base_plate_supports_targeted_threaded_holes(tmp_path: Path) ->
     assert threaded_holes.parameters["major_diameter_mm"] == 6.0
     assert threaded_holes.parameters["tap_drill_mm"] == 5.0
     assert threaded_holes.parameters["thread_pitch_mm"] == 1.0
+    assert threaded_holes.parameters["thread_profile_standard"] == "iso_metric_60"
     assert pocket.kind == "pocket_cut"
     assert pocket.depth_mm == 4.0
     assert boss.depth_mm == 2.0

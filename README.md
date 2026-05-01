@@ -29,7 +29,7 @@ HermesCAD is an engineering workflow agent for repeatable CAD operations. The cu
 - It does not introduce CadQuery, Conjure, or a second CAD stack in the MVP.
 - It does not place new screw holes safely without explicit DXF geometry for the hole locations.
 - It does not infer assembly mates or fastener stacks automatically.
-- It does not claim standards-verified or manufacturing-certified thread geometry; modeled threads are approximate demo geometry and still require engineering review.
+- It does not claim standards-verified or manufacturing-certified thread tolerances; modeled threads use an ISO-style 60 degree metric profile and still require engineering review.
 
 ## How Hermes Fits In
 

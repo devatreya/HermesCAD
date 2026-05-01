@@ -31,6 +31,7 @@ def _format_feature_operation_lines(metadata: dict[str, object]) -> list[str]:
                 "pilot_diameter_mm",
                 "tap_drill_mm",
                 "thread_pitch_mm",
+                "thread_profile_standard",
                 "screw_size",
                 "selector",
             ]:

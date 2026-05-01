@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import socket
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -20,6 +21,14 @@ class PreviewExportResult:
     message: str
 
 
+@dataclass
+class FreeCADRpcExecutionResult:
+    attempted: bool
+    succeeded: bool
+    message: str
+    response: object | None = None
+
+
 def _rpc_endpoint_is_reachable(rpc_url: str, timeout_seconds: float = 1.5) -> bool:
     parsed = urlparse(rpc_url)
     host = parsed.hostname or "127.0.0.1"
@@ -29,6 +38,67 @@ def _rpc_endpoint_is_reachable(rpc_url: str, timeout_seconds: float = 1.5) -> bo
             return True
     except OSError:
         return False
+
+
+def freecad_rpc_url() -> str:
+    return os.environ.get("HERMESCAD_FREECAD_RPC_URL", DEFAULT_FREECAD_RPC_URL)
+
+
+def execute_code_via_running_freecad(
+    code: str,
+    rpc_url: str | None = None,
+) -> FreeCADRpcExecutionResult:
+    resolved_rpc_url = rpc_url or freecad_rpc_url()
+    if not _rpc_endpoint_is_reachable(resolved_rpc_url):
+        return FreeCADRpcExecutionResult(
+            attempted=False,
+            succeeded=False,
+            message=(
+                "FreeCAD RPC execution was skipped because the FreeCAD GUI RPC server was not reachable. "
+                "Start the FreeCAD MCP RPC server to enable live FreeCAD automation."
+            ),
+        )
+
+    try:
+        proxy = ServerProxy(resolved_rpc_url, allow_none=True)
+        response = proxy.execute_code(code)
+    except Exception as exc:
+        return FreeCADRpcExecutionResult(
+            attempted=True,
+            succeeded=False,
+            message=f"FreeCAD RPC execution failed: {exc}",
+        )
+
+    if isinstance(response, dict):
+        if response.get("success"):
+            return FreeCADRpcExecutionResult(
+                attempted=True,
+                succeeded=True,
+                message=str(response.get("message") or "FreeCAD RPC execution succeeded."),
+                response=response,
+            )
+        return FreeCADRpcExecutionResult(
+            attempted=True,
+            succeeded=False,
+            message=str(response.get("error") or response.get("message") or "FreeCAD RPC execution failed."),
+            response=response,
+        )
+
+    return FreeCADRpcExecutionResult(
+        attempted=True,
+        succeeded=False,
+        message="FreeCAD RPC execution returned an unexpected response shape.",
+        response=response,
+    )
+
+
+def _wait_for_output_path(output_path: Path, timeout_seconds: float = 8.0, poll_interval_seconds: float = 0.2) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if output_path.exists():
+            return True
+        time.sleep(poll_interval_seconds)
+    return output_path.exists()
 
 
 def _build_preview_rpc_code(
@@ -45,7 +115,7 @@ import FreeCADGui
 
 target_path = {json.dumps(str(fcstd_path.resolve()))}
 output_path = {json.dumps(str(output_path.resolve()))}
-focus_object = {json.dumps(focus_object)}
+focus_object = {repr(focus_object)}
 image_width = {width}
 image_height = {height}
 
@@ -71,6 +141,27 @@ except Exception:
 gui_doc = FreeCADGui.getDocument(doc.Name)
 if gui_doc is None:
     raise RuntimeError("No GUI document handle was available for preview export.")
+
+for document_object in getattr(doc, "Objects", []):
+    view_object = getattr(document_object, "ViewObject", None)
+    if view_object is None:
+        continue
+    try:
+        view_object.Visibility = True
+    except Exception:
+        pass
+    try:
+        view_object.DisplayMode = "Shaded"
+    except Exception:
+        pass
+    try:
+        view_object.ShapeColor = (0.72, 0.74, 0.78)
+    except Exception:
+        pass
+    try:
+        view_object.LineColor = (0.12, 0.14, 0.18)
+    except Exception:
+        pass
 
 view = gui_doc.activeView()
 if view is None or not hasattr(view, "saveImage"):
@@ -124,18 +215,6 @@ def export_preview_via_running_freecad(
             message=f"Preview skipped because the FreeCAD file does not exist: {fcstd_path}",
         )
 
-    rpc_url = os.environ.get("HERMESCAD_FREECAD_RPC_URL", DEFAULT_FREECAD_RPC_URL)
-    if not _rpc_endpoint_is_reachable(rpc_url):
-        return PreviewExportResult(
-            attempted=False,
-            succeeded=False,
-            output_path=str(output_path),
-            message=(
-                "Preview skipped because the FreeCAD GUI RPC server was not reachable. "
-                "Start the FreeCAD MCP RPC server to enable automatic preview export."
-            ),
-        )
-
     code = _build_preview_rpc_code(
         fcstd_path=fcstd_path,
         output_path=output_path,
@@ -144,33 +223,18 @@ def export_preview_via_running_freecad(
         height=height,
     )
 
-    try:
-        proxy = ServerProxy(rpc_url, allow_none=True)
-        result = proxy.execute_code(code)
-    except Exception as exc:
+    execution = execute_code_via_running_freecad(code, rpc_url=freecad_rpc_url())
+    if execution.succeeded and _wait_for_output_path(output_path):
         return PreviewExportResult(
-            attempted=True,
-            succeeded=False,
-            output_path=str(output_path),
-            message=f"Preview export via running FreeCAD failed: {exc}",
-        )
-
-    if isinstance(result, dict) and result.get("success") and output_path.exists():
-        return PreviewExportResult(
-            attempted=True,
+            attempted=execution.attempted,
             succeeded=True,
             output_path=str(output_path),
             message=f"Preview exported to {output_path}.",
         )
 
-    if isinstance(result, dict) and not result.get("success"):
-        message = result.get("error") or "Preview export via running FreeCAD did not succeed."
-    else:
-        message = "Preview export via running FreeCAD did not produce an image file."
-
     return PreviewExportResult(
-        attempted=True,
+        attempted=execution.attempted,
         succeeded=False,
         output_path=str(output_path),
-        message=message,
+        message=execution.message,
     )

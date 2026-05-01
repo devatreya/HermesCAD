@@ -32,6 +32,16 @@ DEFAULT_GAP_TOLERANCE = 1e-6
 LOOP_TIMEOUT_SECONDS = 10.0
 ARC_SAMPLE_DEGREES = 12.0
 CIRCLE_SAMPLE_COUNT = 48
+ANNOTATION_ENTITY_TYPES = {
+    "TEXT",
+    "MTEXT",
+    "DIMENSION",
+    "MULTILEADER",
+    "LEADER",
+    "TOLERANCE",
+    "HATCH",
+    "INSERT",
+}
 
 
 @dataclass(frozen=True)
@@ -528,14 +538,147 @@ def _is_slot_candidate(contour: ContourSummary) -> bool:
     return False
 
 
-def _classify_contours(contours: list[ContourSummary]) -> None:
+def _bbox_area(bbox: BoundingBox) -> float:
+    return max(float(bbox.width or 0.0), 0.0) * max(float(bbox.height or 0.0), 0.0)
+
+
+def _is_axis_aligned_rectangle_contour(contour: ContourSummary) -> bool:
+    if contour.is_circle or len(contour.segments) != 4:
+        return False
+    if any(segment.kind != "line" for segment in contour.segments):
+        return False
+    for segment in contour.segments:
+        dx = abs(segment.end.x - segment.start.x)
+        dy = abs(segment.end.y - segment.start.y)
+        if dx > DEFAULT_GAP_TOLERANCE and dy > DEFAULT_GAP_TOLERANCE:
+            return False
+    bbox = contour.bounding_box
+    if float(bbox.width or 0.0) <= DEFAULT_GAP_TOLERANCE or float(bbox.height or 0.0) <= DEFAULT_GAP_TOLERANCE:
+        return False
+    return True
+
+
+def _is_degenerate_contour(contour: ContourSummary) -> bool:
+    if contour.is_circle:
+        return False
+    bbox = contour.bounding_box
+    width = float(bbox.width or 0.0)
+    height = float(bbox.height or 0.0)
+    return abs(contour.area) <= DEFAULT_GAP_TOLERANCE or width <= DEFAULT_GAP_TOLERANCE or height <= DEFAULT_GAP_TOLERANCE
+
+
+def _drawing_has_annotations(entity_counts: dict[str, int], open_chain_count: int) -> bool:
+    return open_chain_count >= 8 or any(entity_counts.get(entity_type, 0) > 0 for entity_type in ANNOTATION_ENTITY_TYPES)
+
+
+def _detect_drawing_frame_contours(
+    contours: list[ContourSummary],
+    overall_bbox: BoundingBox,
+    entity_counts: dict[str, int],
+    open_chain_count: int,
+) -> set[str]:
+    if not contours or not _drawing_has_annotations(entity_counts, open_chain_count):
+        return set()
+
+    overall_area = _bbox_area(overall_bbox)
+    if overall_area <= DEFAULT_GAP_TOLERANCE:
+        return set()
+
+    ignored_ids: set[str] = set()
+    for contour in contours:
+        if contour.role != "outer_profile":
+            continue
+        if not _is_axis_aligned_rectangle_contour(contour):
+            continue
+        contour_bbox_area = _bbox_area(contour.bounding_box)
+        if contour_bbox_area < overall_area * 0.98:
+            continue
+        largest_other_area = max(
+            (abs(other.area) for other in contours if other.contour_id != contour.contour_id),
+            default=0.0,
+        )
+        if abs(contour.area) < max(largest_other_area * 4.0, 1000.0):
+            continue
+        significant_children = [
+            child
+            for child in contours
+            if child.parent_contour_id == contour.contour_id and abs(child.area) > max(abs(contour.area) * 0.005, 10.0)
+        ]
+        if not significant_children:
+            continue
+        ignored_ids.add(contour.contour_id)
+    return ignored_ids
+
+
+def _is_likely_annotation_loop(contour: ContourSummary) -> bool:
+    if contour.is_circle:
+        return False
+    source_types = set(contour.source_entity_types)
+    if not source_types or not source_types.issubset({"LINE", "LWPOLYLINE", "POLYLINE"}):
+        return False
+    bbox = contour.bounding_box
+    width = float(bbox.width or 0.0)
+    height = float(bbox.height or 0.0)
+    min_dim = min(width, height)
+    max_dim = max(width, height)
+    aspect_ratio = max_dim / max(min_dim, DEFAULT_GAP_TOLERANCE)
+    if min_dim <= 1.0 and max_dim >= 10.0:
+        return True
+    if abs(contour.area) <= 25.0:
+        return True
+    if aspect_ratio >= 40.0 and min_dim <= 2.0:
+        return True
+    return False
+
+
+def _exclude_annotation_loops(
+    contours: list[ContourSummary],
+    entity_counts: dict[str, int],
+    open_chain_count: int,
+) -> list[str]:
+    if not _drawing_has_annotations(entity_counts, open_chain_count):
+        return []
+
+    excluded_ids: list[str] = []
+    for contour in contours:
+        if contour.role not in {"outer_profile", "cutout", "island"}:
+            continue
+        if not _is_likely_annotation_loop(contour):
+            continue
+        contour.parent_contour_id = None
+        contour.child_contour_ids.clear()
+        contour.nesting_depth = 0
+        contour.role = "annotation_loop"
+        contour.is_hole_candidate = False
+        contour.is_slot_candidate = False
+        note = "Detected as likely annotation geometry and excluded from part reconstruction."
+        if note not in contour.notes:
+            contour.notes.append(note)
+        excluded_ids.append(contour.contour_id)
+    return excluded_ids
+
+
+def _classify_contours(contours: list[ContourSummary], ignored_ids: set[str] | None = None) -> None:
     if not contours:
         return
+
+    ignored_ids = ignored_ids or set()
 
     contours_by_id = {contour.contour_id: contour for contour in contours}
     representative_points: dict[str, tuple[float, float]] = {}
 
     for contour in contours:
+        contour.parent_contour_id = None
+        contour.child_contour_ids.clear()
+        contour.nesting_depth = 0
+        contour.is_hole_candidate = False
+        contour.is_slot_candidate = False
+        if contour.contour_id in ignored_ids:
+            contour.role = "drawing_frame"
+            note = "Detected as likely drawing frame geometry and excluded from part reconstruction."
+            if note not in contour.notes:
+                contour.notes.append(note)
+            continue
         if contour.is_circle and contour.segments and contour.segments[0].center is not None:
             center = contour.segments[0].center
             representative_points[contour.contour_id] = (center.x, center.y)
@@ -545,6 +688,8 @@ def _classify_contours(contours: list[ContourSummary]) -> None:
             representative_points[contour.contour_id] = interior_point
 
     for contour in contours:
+        if contour.contour_id in ignored_ids:
+            continue
         parent: ContourSummary | None = None
         candidate_point = representative_points.get(contour.contour_id)
         if candidate_point is None:
@@ -552,6 +697,8 @@ def _classify_contours(contours: list[ContourSummary]) -> None:
             continue
         for container in contours:
             if container.contour_id == contour.contour_id:
+                continue
+            if container.contour_id in ignored_ids:
                 continue
             if container.area <= contour.area + DEFAULT_GAP_TOLERANCE:
                 continue
@@ -562,9 +709,8 @@ def _classify_contours(contours: list[ContourSummary]) -> None:
             contour.parent_contour_id = parent.contour_id
 
     for contour in contours:
-        contour.child_contour_ids.clear()
-
-    for contour in contours:
+        if contour.contour_id in ignored_ids:
+            continue
         if contour.parent_contour_id:
             parent = contours_by_id[contour.parent_contour_id]
             parent.child_contour_ids.append(contour.contour_id)
@@ -578,10 +724,22 @@ def _classify_contours(contours: list[ContourSummary]) -> None:
         return contour.nesting_depth
 
     for contour in contours:
+        if contour.contour_id in ignored_ids:
+            continue
         assign_depth(contour)
 
     for contour in contours:
+        if contour.contour_id in ignored_ids:
+            continue
         contour.child_contour_ids = sorted(contour.child_contour_ids)
+        if _is_degenerate_contour(contour):
+            contour.role = "degenerate"
+            contour.is_hole_candidate = False
+            contour.is_slot_candidate = False
+            note = "Contour was closed but degenerate and excluded from part reconstruction."
+            if note not in contour.notes:
+                contour.notes.append(note)
+            continue
         if contour.nesting_depth % 2 == 0:
             contour.role = "outer_profile" if contour.nesting_depth == 0 else "island"
         else:
@@ -755,6 +913,26 @@ def inspect_dxf_file(
             open_chains.append(_open_chain_from_edges(list(chain), chain_id=f"open_chain_{chain_index:03d}"))
 
     _classify_contours(contours)
+    frame_contour_ids = _detect_drawing_frame_contours(
+        contours,
+        overall_bbox=_bbox_from_bounds(bounds),
+        entity_counts=entity_counts,
+        open_chain_count=len(open_chains),
+    )
+    if frame_contour_ids:
+        _classify_contours(contours, ignored_ids=frame_contour_ids)
+        notes.append(
+            "Ignored likely drawing frame contour(s) and recomputed contour nesting for the enclosed part geometry."
+        )
+    excluded_annotation_ids = _exclude_annotation_loops(
+        contours,
+        entity_counts=entity_counts,
+        open_chain_count=len(open_chains),
+    )
+    if excluded_annotation_ids:
+        notes.append(
+            "Excluded likely annotation loops from part reconstruction after contour classification."
+        )
     contours.sort(key=lambda contour: contour.contour_id)
     open_chains.sort(key=lambda chain: chain.chain_id)
 
@@ -807,9 +985,15 @@ def inspect_dxf_file(
             f"{geometry_summary.open_chain_count} open chain(s) were detected. The drawing may contain construction geometry or incomplete contours."
         )
     if len(geometry_summary.outer_profile_ids) > 1:
-        geometry_summary.notes.append(
-            "Multiple top-level outer profiles were detected. HermesCAD will treat them as multiple planar regions in one job."
-        )
+        if _drawing_has_annotations(entity_counts, len(open_chains)):
+            geometry_summary.warnings.append(
+                "Multiple disjoint top-level closed profiles remained after excluding drawing-frame or annotation geometry. "
+                "The drawing likely contains multiple annotated views, so HermesCAD cannot safely infer one manufacturable part profile."
+            )
+        else:
+            geometry_summary.notes.append(
+                "Multiple top-level outer profiles were detected. HermesCAD will treat them as multiple planar regions in one job."
+            )
     if loop_error is not None:
         geometry_summary.notes.append(f"Loop analysis diagnostic: {loop_error}")
 

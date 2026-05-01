@@ -28,5 +28,19 @@
         "rz_deg": 0
       }
     }
+  ],
+  "fasteners": [
+    {
+      "name": "corner_cap_screws",
+      "standard": "ISO4762",
+      "diameter": "M6",
+      "length_mm": 20,
+      "source_part": "cover_plate",
+      "hole_selector": "corner",
+      "thread_mode": "real",
+      "head_side": "positive_z",
+      "offset_mm": 0,
+      "description": "Insert four real-thread M6 socket-head cap screws from the top cover side into the threaded base plate."
+    }
   ]
 }

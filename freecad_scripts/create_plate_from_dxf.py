@@ -7,6 +7,9 @@ import os
 import sys
 from pathlib import Path
 
+ISO_METRIC_THREAD_HALF_ANGLE_DEG = 30.0
+ISO_METRIC_THREAD_PITCH_RADIUS_OFFSET_FACTOR = (3.0 * math.sqrt(3.0)) / 16.0
+
 
 def _load_freecad_modules():
     try:
@@ -170,6 +173,25 @@ def _fuse_shapes(shapes: list[object]):
     return result
 
 
+def _normalize_boolean_result(shape):
+    if shape.isNull():
+        raise RuntimeError("A FreeCAD boolean operation produced a null shape.")
+
+    candidate = shape
+    try:
+        candidate = candidate.removeSplitter()
+    except Exception:
+        candidate = shape
+
+    if candidate.ShapeType == "Compound" and len(candidate.Solids) == 1:
+        inner_solid = candidate.Solids[0]
+        try:
+            return inner_solid.removeSplitter()
+        except Exception:
+            return inner_solid
+    return candidate
+
+
 def _hole_contour_geometry(contour: dict[str, object]) -> tuple[tuple[float, float], float]:
     segments = contour.get("segments", [])
     if not segments:
@@ -220,21 +242,32 @@ def _build_thread_groove_cut_solid(
     if thread_pitch_mm <= 0:
         raise RuntimeError("Thread pitch must be positive.")
 
-    # Use a slightly overlapping circular helical groove for robust booleans in headless FreeCAD.
-    groove_radius_mm = max((major_radius_mm - minor_radius_mm) * 0.7, 0.08)
-    path_radius_mm = minor_radius_mm + groove_radius_mm * 0.55
-    helix = Part.makeHelix(thread_pitch_mm, depth_mm, path_radius_mm)
-    helix.translate(App.Vector(center_x, center_y, z_offset_mm))
+    radial_thread_depth_mm = major_radius_mm - minor_radius_mm
+    pitch_radius_mm = major_radius_mm - ISO_METRIC_THREAD_PITCH_RADIUS_OFFSET_FACTOR * thread_pitch_mm
+    if pitch_radius_mm <= minor_radius_mm or pitch_radius_mm >= major_radius_mm:
+        pitch_radius_mm = minor_radius_mm + radial_thread_depth_mm / 2.0
+
+    axial_half_span_mm = radial_thread_depth_mm * math.tan(math.radians(ISO_METRIC_THREAD_HALF_ANGLE_DEG))
+    overlap_mm = min(0.05, max(0.01, thread_pitch_mm * 0.05))
+
+    helix = Part.makeHelix(thread_pitch_mm, depth_mm + overlap_mm * 2.0, pitch_radius_mm)
+    helix.translate(App.Vector(center_x, center_y, z_offset_mm - overlap_mm))
     helix_wire = Part.Wire(helix.Edges)
-    profile_edge = Part.makeCircle(
-        groove_radius_mm,
-        App.Vector(center_x + path_radius_mm, center_y, z_offset_mm),
-        App.Vector(0, 1, 0),
+
+    major_minus = App.Vector(center_x + major_radius_mm, center_y, z_offset_mm - axial_half_span_mm)
+    minor_apex = App.Vector(center_x + minor_radius_mm, center_y, z_offset_mm)
+    major_plus = App.Vector(center_x + major_radius_mm, center_y, z_offset_mm + axial_half_span_mm)
+    profile_wire = Part.makePolygon(
+        [
+            major_minus,
+            minor_apex,
+            major_plus,
+            major_minus,
+        ]
     )
-    profile_wire = Part.Wire([profile_edge])
     thread_cut = helix_wire.makePipeShell([profile_wire], True, True)
     if thread_cut.isNull():
-        raise RuntimeError("FreeCAD returned a null helical thread-cut shape.")
+        raise RuntimeError("FreeCAD returned a null ISO-style helical thread-cut shape.")
     return thread_cut
 
 
@@ -430,8 +463,7 @@ def _apply_feature_operations(
             solid = solid.fuse(cut_shape)
         else:
             solid = solid.cut(cut_shape)
-            if operation_kind == "threaded_hole":
-                solid = solid.removeSplitter()
+        solid = _normalize_boolean_result(solid)
         operation_summaries.append(
             f"{operation.get('operation_id', 'op')}:{operation_kind}:{operation.get('target_kind', 'unknown')}:{len(contour_ids)} contour(s) at {depth_mm:g} mm"
         )

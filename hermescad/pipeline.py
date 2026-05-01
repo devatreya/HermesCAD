@@ -18,6 +18,16 @@ THICKNESS_PATTERNS = [
     re.compile(r"(\d+(?:\.\d+)?)\s*mm\s*thick", re.IGNORECASE),
     re.compile(r"thickness\s*(?:of\s*)?(\d+(?:\.\d+)?)\s*mm", re.IGNORECASE),
 ]
+EXTRUSION_DEPTH_PATTERNS = [
+    re.compile(
+        r"(\d+(?:\.\d+)?)\s*mm\s*(?:long|length)\s+(?:3d\s+)?(?:profile|section|extrusion|model|part)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:extrud(?:e|ion)|extend)\s+(?:the\s+)?(?:profile|section|model|part)?\s*(?:to|by)?\s*(\d+(?:\.\d+)?)\s*mm\b",
+        re.IGNORECASE,
+    ),
+]
 CHAMFER_PATTERNS = [
     re.compile(r"(\d+(?:\.\d+)?)\s*mm\s*chamfers?", re.IGNORECASE),
     re.compile(r"add\s+(\d+(?:\.\d+)?)\s*mm\s*chamfers?", re.IGNORECASE),
@@ -30,6 +40,13 @@ def _extract_measurement(text: str, patterns: list[re.Pattern[str]]) -> float | 
         if match:
             return float(match.group(1))
     return None
+
+
+def _extract_extrusion_depth_mm(text: str) -> float | None:
+    thickness_mm = _extract_measurement(text, THICKNESS_PATTERNS)
+    if thickness_mm is not None:
+        return thickness_mm
+    return _extract_measurement(text, EXTRUSION_DEPTH_PATTERNS)
 
 
 def _has_millimetre_context(text: str) -> bool:
@@ -126,16 +143,18 @@ def process_cad_request(
             "Effective input is not DXF. HermesCAD could not inspect geometry or generate the MVP 3D model."
         )
 
-    thickness_mm = _extract_measurement(instruction_text, THICKNESS_PATTERNS)
+    thickness_mm = _extract_extrusion_depth_mm(instruction_text)
     chamfer_mm = _extract_measurement(instruction_text, CHAMFER_PATTERNS)
     can_attempt_cad = geometry_summary is not None and thickness_mm is not None
 
     if thickness_mm is None:
         result.failures.append(
-            "Thickness was not provided in the request. Hermes should ask the user for thickness before 2D-to-3D generation."
+            "Thickness or profile extrusion length was not provided in the request. Hermes should ask the user for a base extrusion depth before 2D-to-3D generation."
         )
     else:
-        result.assumptions.append(f"Model thickness interpreted as {thickness_mm:g} mm from the request text.")
+        result.assumptions.append(
+            f"Base extrusion depth interpreted as {thickness_mm:g} mm from the request text."
+        )
 
     if chamfer_mm is not None:
         result.assumptions.append(
@@ -165,6 +184,11 @@ def process_cad_request(
             can_attempt_cad = False
             result.failures.append(
                 "No closed contours were detected, so HermesCAD could not safely reconstruct a 2D profile for extrusion."
+            )
+        if any("multiple disjoint top-level closed profiles" in warning.lower() for warning in geometry_summary.warnings):
+            can_attempt_cad = False
+            result.failures.append(
+                "The drawing appears to contain multiple annotated views or multiple disjoint top-level profiles, so HermesCAD could not safely choose one manufacturable part outline."
             )
 
     result.warnings.append(
