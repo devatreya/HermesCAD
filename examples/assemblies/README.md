@@ -20,3 +20,27 @@ A Hermes prompt can also describe the same assembly without an existing JSON fil
 - any fastener intent
 
 If a prompt provides only two file paths and says "assemble these", HermesCAD does not have enough information yet. It should stop and ask for the missing placements instead of inventing mates.
+
+Example Hermes prompt with placeholder file paths:
+
+```text
+Use the hermescad skill to assemble these two parts:
+
+/path/to/base_plate.dxf
+/path/to/cover_plate.dxf
+
+Part instructions:
+- base_plate: Create a 12 mm thick model and keep the four corner holes as M6 threaded holes 10 mm deep.
+- cover_plate: Create an 8 mm thick model and keep the four corner holes as M6 clearance holes.
+
+Placement instructions:
+- Place the base_plate at X=0, Y=0, Z=0 with no rotation.
+- Place the cover_plate at X=0, Y=0, Z=12 mm with no rotation.
+
+Fasteners:
+- Insert 4 ISO4762 M6 x 20 screws through the cover plate corner holes into the base plate threaded holes.
+
+Return FCStd, STEP, STL, preview, and a report.
+```
+
+That level of detail is enough for HermesCAD to normalize the request into the same deterministic runtime structure it would otherwise load from a JSON manifest.
