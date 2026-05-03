@@ -1,9 +1,7 @@
 # Architecture
 
 ```text
-Email / WhatsApp
-      ↓
-Hermes existing communication layer
+User prompt in Hermes chat
       ↓
 Hermes Agent
       ↓
@@ -15,14 +13,13 @@ FreeCAD
       ↓
 STEP / STL / FCStd / preview / report
       ↓
-Hermes sends result back
+Hermes returns results in chat and on disk
 ```
 
 Notes:
 
-- Hermes owns the communication channel integration.
+- Hermes owns the prompt orchestration and tool execution.
 - HermesCAD owns the engineering workflow logic.
 - FreeCAD is the only CAD engine in the MVP.
 - `neka-nat/freecad-mcp` is the primary automation interface.
 - Local Python plus FreeCAD scripts provide the fallback path.
-

@@ -15,7 +15,7 @@ Use this skill when Hermes receives an engineering request with a CAD attachment
 
 ## Accepted Inputs
 
-- Natural-language request text from email or WhatsApp
+- Natural-language request text in Hermes chat
 - DXF attachment
 - DWG attachment when DXF is unavailable
 - Optional assembly manifest with explicit part placements

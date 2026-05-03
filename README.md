@@ -1,6 +1,6 @@
 # HermesCAD
 
-HermesCAD turns engineering inbox requests into CAD deliverables. Engineers already send DWG/DXF files over email and WhatsApp. Hermes reads the message, understands the requested CAD operation, calls FreeCAD through a reusable engineering skill and FreeCAD MCP, generates STEP/STL/FCStd/preview/report, and sends the result back in the same thread.
+HermesCAD turns engineering CAD requests into deliverables through Hermes chat. A user gives Hermes a DXF or DWG file path, or an explicit assembly request, and HermesCAD interprets the job, calls FreeCAD through MCP or local automation, and generates STEP, STL, FCStd, preview, and report outputs.
 
 ## What HermesCAD Is
 
@@ -33,7 +33,7 @@ HermesCAD is an engineering workflow agent for repeatable CAD operations. The cu
 
 ## How Hermes Fits In
 
-Hermes already owns the communication layer. This repository does not build email or WhatsApp integrations from scratch. Instead, it provides:
+Hermes is the agent and prompt surface for this project. This repository does not include email or WhatsApp integrations. Instead, it provides:
 
 - The HermesCAD skill in [hermes/skills/hermescad/SKILL.md](/Users/devatreya/Desktop/Projects/HermesCAD/hermes/skills/hermescad/SKILL.md)
 - Hermes MCP configuration examples in [hermes/config](/Users/devatreya/Desktop/Projects/HermesCAD/hermes/config)
@@ -43,9 +43,7 @@ Hermes already owns the communication layer. This repository does not build emai
 
 FreeCAD is the only CAD backend in this repository. The runtime architecture is:
 
-Email / WhatsApp  
-↓  
-Hermes existing communication layer  
+User prompt in Hermes chat  
 ↓  
 Hermes Agent  
 ↓  
@@ -57,7 +55,7 @@ FreeCAD
 ↓  
 STEP / STL / FCStd / preview / report  
 ↓  
-Hermes sends result back
+Hermes returns results in chat and on disk
 
 ## FreeCAD MCP Used
 
@@ -100,6 +98,12 @@ python scripts/process_assembly_request.py examples/assemblies/threaded_cover_st
 
 That workflow produces one root assembly job folder with nested part subfolders plus assembly-level `FCStd`, `STEP`, `STL`, `preview`, report, and one packaged zip.
 
+The worked assembly example lives in:
+
+- [examples/assemblies/threaded_cover_stack/assembly_manifest.json](/Users/devatreya/Desktop/Projects/HermesCAD/examples/assemblies/threaded_cover_stack/assembly_manifest.json)
+
+That example builds a two-part deterministic assembly: a threaded base plate plus a clearance-hole cover plate placed 12 mm above it.
+
 ## Assembly Input Modes
 
 HermesCAD uses a manifest-shaped assembly model internally, but that does not mean the user must always hand-author JSON first.
@@ -119,6 +123,13 @@ In other words:
 - A manifest is the most reliable production input
 - A free-form Hermes prompt is also acceptable if it provides enough deterministic information for Hermes to construct the equivalent runtime manifest internally
 
+For production-style usage, the assembly request should always resolve to these details before FreeCAD assembly starts:
+
+- each part drawing path
+- each part’s natural-language modeling instruction
+- the exact placement for each part
+- any explicit fastener specification that should be inserted into the assembly
+
 Canonical output contract:
 
 - Each run should have one canonical working directory under `jobs/<job_id>/`.
@@ -135,7 +146,7 @@ The local demo does not require Hermes or FreeCAD MCP. If FreeCAD is not install
 4. Run `/reload-mcp` in Hermes after saving the config.
 5. Test a basic tool such as `mcp_freecad_get_objects` or `mcp_freecad_create_document`.
 
-For local testing without email, start Hermes from the repository root and pass either:
+For local usage, start Hermes from the repository root and pass either:
 
 - one DXF/DWG path plus a 2D-to-3D instruction
 - an explicit assembly manifest path
@@ -192,6 +203,12 @@ Return FCStd, STEP, STL, preview, and a report.
 ```
 
 That prompt is valid because it contains the same information that would otherwise live in a manifest: part paths, part-level instructions, placements, and fastener intent.
+
+If you want a real example to copy and adapt, start from:
+
+- [examples/assemblies/threaded_cover_stack/assembly_manifest.json](/Users/devatreya/Desktop/Projects/HermesCAD/examples/assemblies/threaded_cover_stack/assembly_manifest.json)
+- [examples/drawings/assembly_base_plate_threaded.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/assembly_base_plate_threaded.dxf)
+- [examples/drawings/assembly_cover_plate_clearance.dxf](/Users/devatreya/Desktop/Projects/HermesCAD/examples/drawings/assembly_cover_plate_clearance.dxf)
 
 ## Fallback Path If MCP Is Not Available
 

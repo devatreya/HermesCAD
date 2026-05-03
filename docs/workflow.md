@@ -32,11 +32,11 @@
 
 ## Hermes Integration Flow
 
-1. Hermes receives the email or WhatsApp message.
+1. The user prompts Hermes in chat and provides a drawing path, attachment, or explicit assembly request.
 2. Hermes invokes the HermesCAD skill.
 3. HermesCAD prefers the FreeCAD MCP path.
 4. HermesCAD falls back to local scripts when MCP is unavailable.
-5. Hermes returns the packaged result and the report in the same thread.
+5. Hermes returns the packaged result and the report in chat, while the files are also written to disk.
 
 ## Fallback Behavior
 
